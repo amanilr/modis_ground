@@ -8,11 +8,16 @@ from pyhdf.SD import SD, SDC
 from sklearn.neighbors import KDTree
 import util
 
+DEFAULT_VALUE = -999999.0
+
 class Modis(object):
     def __init__(self, file_path):
         self.file_path = file_path
         self.dataDF = None
-        self.kdtree = None
+        self.time_arr = None
+        self.time_tree = None
+        self.time2lnglat_arr = dict()
+        self.time2lnglat_tree = dict()
 
     def load_data(self):
         if not os.path.isdir(self.file_path):
@@ -54,21 +59,52 @@ class Modis(object):
         return 0
 
     def build_kdtree(self):
-        X = np.array([point for point in zip(df['lng'].values, df['lat'].values, df['timestamp'].values)])
-        self.kdtree = KDTree(X)
+        self.time_arr = self.dataDF['timestamp'].drop_duplicates().values
+        self.time_tree = KDTree(self.time_arr)
 
-    def _buid_all(self):
-        res = self.load_data()
-        if res == -1:
-            print("load modis data fail.")
-            return -1
-        self.build_kdtree()
+        for timestamp in self.time_arr:
+            timeDataDF = self.dataDF[self.dataDF['timestamp'] == timestamp]
+            lnglat_arr = np.array([point for point in zip(timeDataDF['lng'].values, timeDataDF['lat'].values)])
+            lnglat_tree = KDTree(lnglat_arr)
+            self.time2lnglat_tree[timestamp] = lnglat_tree
+            self.time2lnglat_arr[timestamp] = lnglat_arr
 
         return 0
 
-    def _get_nearest_data(lng, lat, timestamp):
-        dist, inds = self.kdtree.query(np.array([lng, lat, timestamp]).reshape(1, -1), k=1)
-        return self.dataDF.ix[inds[0]]
+    def _buid_all(self):
+        res = self.load_data()
+        if res != 0:
+            print("load modis data fail.")
+            return -1
+        res = self.build_kdtree()
+        if res != 0:
+            print("build kdtree fail.")
+            return -1
+
+        return 0
+
+    def _get_nearest_data(self, lng, lat, timestamp):
+        inds = self.time_tree.query(np.array([timestamp]), k=1, return_distance=False)
+        nearest_timestamp = self.time_arr[inds[0]]
+
+        if not self.time2lnglat_tree.has_key(nearest_timestamp):
+            print('can not find any timestamp:', timestamp)
+            return DEFAULT_VALUE, DEFAULT_VALUE
+
+        lnglat_tree = self.time2lnglat_tree[nearest_timestamp]
+        lnglat_arr = self.time2lnglat_arr[nearest_timestamp]
+        inds = lnglat_tree.query(np.array([lng, lat]).reshape(1,-1), k=1, return_distance=False)
+        nearest_point = lnglat_arr[inds[0]]
+
+        resultDF = self.dataDF[(self.dataDF['timestamp']==nearest_timestamp) \
+                    & (self.dataDF['lng']==nearest_point[0]) \
+                    & (self.dataDF['lat']==nearest_point[1])]
+
+        if len(resultDF) != 1:
+            print('the nearest data is more than 1.')
+            return DEFAULT_VALUE, DEFAULT_VALUE
+
+        return resultDF.ix[0]['pwv_nir'], resultDF.ix[0]['pwv_ir']
 
 if __name__ == '__main__':
     modis = Modis(file_path='/Users/didi/Documents/hjy/MODIS-TPW/')
