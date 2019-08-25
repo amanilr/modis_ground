@@ -2,14 +2,15 @@
 
 import os
 import pandas as pd
+import util
 
 class Ground(object):
     def __init__(self, file_path):
         self.file_path = file_path
-        self.dataDF = None
+        self.file_name2df = dict()
 
     def load_data(self):
-        if not os.path.isdir(path):
+        if not os.path.isdir(self.file_path):
             print('this is not a directoy:', self.file_path)
             return -1
 
@@ -17,11 +18,15 @@ class Ground(object):
         valid_files = [file for file in files if file.endswith('GPSG_vapor.txt')]
         for valid_file in valid_files:
             file_name = valid_file
+            #debug code
+            #if '20190601060000' not in file_name:
+            #    continue
+            #debug end
             file_name_fields = file_name.strip().split("_")
             date_time_field = file_name_fields[4]
             timestamp = util.get_timestamp_ground(date_time_field)
 
-            total_file_name = os.path.join(file_path, valid_file)
+            total_file_name = os.path.join(self.file_path, valid_file)
             f = open(total_file_name)
             line = f.readline()
             line = f.readline()
@@ -29,39 +34,41 @@ class Ground(object):
 
             file_data = dict()
             file_data['sname'] = []
-            file_data['sid'] = []
-            file_data['lat'] = []
-            file_data['lng'] = []
-            file_data['elv'] = []
-            file_data['P'] = []
-            file_data['T'] = []
-            file_data['RH'] = []
-            file_data['PWV'] = []
+            file_data['slat'] = []
+            file_data['slon'] = []
+            file_data['gps_pwv'] = []
             file_data['timestamp'] = []
 
             for line in f.readlines():
                 slines = line.split(" ")
-                file_data['sname'].append(slines[0])
-                file_data['sid'].append(slines[1])
-                file_data['lat'].append(float(slines[2]))
-                file_data['lng'].append(float(slines[3]))
-                file_data['elv'].append(float(slines[4]))
-                file_data['P'].append(float(slines[6]))
-                file_data['T'].append(float(slines[7]))
-                file_data['RH'].append(float(slines[8]))
-                file_data['PWV'].append(float(slines[9]))
-                file_data['timestamp'].append(timestamp)
-            f.close()
+                sname = slines[0]
+                gps_pwv = float(slines[9])
 
-        self.dataDF = pd.DataFrame(file_data)
+                #过滤不符合条件的记录
+                if not (sname.startswith('SC') or sname.startswith('XZ')):
+                    continue
+                if gps_pwv <= 0 or gps_pwv >= 100:
+                    continue
+
+                file_data['sname'].append(slines[0])
+                file_data['slat'].append(float(slines[2]))
+                file_data['slon'].append(float(slines[3]))
+                file_data['gps_pwv'].append(float(slines[9]))
+                file_data['timestamp'].append(timestamp)
+
+            f.close()
+            dataDF = pd.DataFrame(file_data)
+            self.file_name2df[total_file_name] = dataDF
+
+        print('all ground data loaded.')
         return 0
+
+    def _get_data(self):
+        return self.file_name2df
 
     def _load_all(self):
         res = self.load_data()
         if res != 0:
-            print('load all data fail.')
+            print('load ground data fail.')
             return -1
         return 0
-
-    def _get_data(self):
-        return self.dataDF
