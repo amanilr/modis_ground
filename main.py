@@ -1,87 +1,59 @@
 # -- coding:utf-8 --
 
-import sys
-from modis import Modis, DEFAULT_VALUE
-from ground import Ground
+from fy_3d import FY_3D
+from gps1 import GPS1
 
 import pandas as pd
 import util
 
-#调用modis的KDTree索引，得到时间和空间上最近的modis值
-'''
-def get_neareset_pos(x, modis):
-    idx, _ = modis._get_nearest_data(x['lng'], x['lat'], x['timestamp'])
-    n_row = idx / modis._get_col_num()
-    n_col = idx % modis._get_col_num()
-    if idx < 0:
-        return (DEFAULT_VALUE, DEFAULT_VALUE)
-    return (n_row, n_col)
-'''
 
-def get_nearest_data(lng, lat, timestamp, modis):
-    modis_pwv, modis_timestamp, modis_type = modis._get_nearest_data(lng, lat, timestamp)
-    return modis_pwv, modis_timestamp, modis_type
-
-def parse_all(modis_file_path='F:\\MODIS-TPW', ground_file_path='F:\\Ground-TPW\GPS\data', out_file_path='F:\\Ground-TPW\\GPS\\csv_data\\result.csv'):
-    modis = Modis(file_path=modis_file_path)
-    res = modis._buid_all()
-    if res != 0:
-        print('init modis data failed.')
-        return -1
-
-    ground = Ground(file_path=ground_file_path)
-    res = ground._load_all()
-    if res != 0:
-        print('init ground data failed.')
-        return -1
-
-    file_name2df = ground._get_data()
+def parse_all(satellite_file_path, ground_file_path, out_file_path):
+    ground = GPS1(file_path=ground_file_path)
+    satellite = FY_3D(file_path=satellite_file_path)
+    file_list = ground._get_file_list()
     result = dict()
-    result['sname'] = []
-    result['slat'] = []
-    result['slon'] = []
-    result['gps_year'] = []
-    result['gps_month'] = []
-    result['gps_day'] = []
-    result['gps_hour'] = []
-    result['gps_minute'] = []
-    result['gps_pwv'] = []
-    result['modis_year'] = []
-    result['modis_month'] = []
-    result['modis_day'] = []
-    result['modis_hour'] = []
-    result['modis_minute'] = []
-    result['modis_pwv'] = []
-    result['modis_type'] = []
-    for file_name in file_name2df:
-        ground_df = file_name2df[file_name]
-        for index, row in ground_df.iterrows():
-            lng = row['slon']
-            lat = row['slat']
-            timestamp = row['timestamp']
-            modis_pwv, modis_timestamp, modis_type = get_nearest_data(lng, lat, timestamp, modis)
-            if modis_pwv == DEFAULT_VALUE:
+    result['year'] = []
+    result['month'] = []
+    result['day'] = []
+    result['hour'] = []
+    result['minute'] = []
+    result['lon'] = []
+    result['lat'] = []
+    result['elv'] = []
+    result['FY3_TPW'] = []
+    result['GPS_TPW'] = []
+    for file_name in file_list:
+        timestamp = ground._get_timestamp_from_filename(file_name)
+        from_timestamp, to_timestamp, time_interval = \
+            ground._get_time_range_from_filename(file_name)
+        ret = satellite._load_data(from_timestamp, to_timestamp, time_interval)
+        if ret != 0:
+            print 'load satellite data error. ret:', ret
+            return ret
+        df = ground._load_file(file_name)
+        if df is None or len(df) == 0:
+            print 'load ground data error. empty data.'
+            return -1
+        for index, row in df.iterrows():
+            lng = row['lon']
+            lat = row['lat']
+            fy3_tpw = satellite._get_nearest_data(lng, lat)
+            if fy3_tpw == DEFAULT_VALUE:
                 continue
 
-            result['sname'].append(row['sname'])
-            result['slat'].append(row['slat'])
-            result['slon'].append(row['slon'])
-            result['gps_year'].append(util.get_year(row['timestamp']))
-            result['gps_month'].append(util.get_month(row['timestamp']))
-            result['gps_day'].append(util.get_day(row['timestamp']))
-            result['gps_hour'].append(util.get_hour(row['timestamp']))
-            result['gps_minute'].append(util.get_minute(row['timestamp']))
-            result['gps_pwv'].append(row['gps_pwv'])
-            result['modis_year'].append(util.get_year(modis_timestamp))
-            result['modis_month'].append(util.get_month(modis_timestamp))
-            result['modis_day'].append(util.get_day(modis_timestamp))
-            result['modis_hour'].append(util.get_hour(modis_timestamp))
-            result['modis_minute'].append(util.get_minute(modis_timestamp))
-            result['modis_pwv'].append(modis_pwv)
-            result['modis_type'].append(modis_type)
+            result['year'].append(util.get_year(timestamp))
+            result['month'].append(util.get_month(timestamp))
+            result['day'].append(util.get_day(timestamp))
+            result['hour'].append(util.get_hour(timestamp))
+            result['minute'].append(util.get_minute(timestamp))
+            result['lon'].append(lng)
+            result['lat'].append(lat)
+            result['elv'].append(row['elv'])
+            result['FY3_TPW'].append(fy3_tpw)
+            result['GPS_TPW'].append(row['PWV'])
+    result_df = pd.DataFrame(result)
 
-    resultDF = pd.DataFrame(result)
-    print resultDF.head(10)
+    print result_df.head(10)
     print out_file_path
     resultDF.to_csv(out_file_path, index=False)
 
@@ -91,11 +63,14 @@ def parse_all(modis_file_path='F:\\MODIS-TPW', ground_file_path='F:\\Ground-TPW\
 if __name__ == '__main__':
     '''
     if len(sys.argv) != 3:
-        print('usage: python main.py [modis_file_path] [ground_file_path]')
+        print('usage: python main.py [satellite_file_path] [ground_file_path]')
         exit(-1)
     '''
 
-    res = parse_all()
+    satellite_file_path = 'G:\\FY-TPW\\FY-3D'
+    ground_file_path = 'G:\\Ground-TPW\\GPS\\chinadata\\201908'
+    output_file_path = 'G:\\modis_ground\\output\\result.csv'
+    res = parse_all(satellite_file_path, ground_file_path, output_file_path)
     if res != 0:
         print('parse all failed.')
         exit(-1)
