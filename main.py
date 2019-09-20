@@ -23,6 +23,7 @@ def parse_all(satellite_file_path, ground_file_path, out_file_path):
     result['FY3_TPW'] = []
     result['GPS_TPW'] = []
     for file_name in file_list:
+        print 'parsing gps file:', file_name
         timestamp = ground._get_timestamp_from_filename(file_name)
         from_timestamp, to_timestamp, time_interval = \
             ground._get_time_range_from_filename(file_name)

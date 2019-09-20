@@ -16,6 +16,9 @@ def get_timestamp_ground(date_time_str):
 def get_timestr(timestamp):
     return datetime.fromtimestamp(timestamp).strftime('%Y%m%d')
 
+def get_datetime_str(timestamp):
+    return datetime.fromtimestamp(timestamp).strftime('%Y%m%d_%H%M')
+
 def calc_dist(xa, ya, xb, yb):
     dist_ratio = 100000
     xa = xa * dist_ratio

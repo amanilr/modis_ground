@@ -8,6 +8,7 @@ import os
 import h5py as h5
 import numpy as np
 import pandas as pd
+import util
 
 ORBIT_PREFIX = '/FY3D_MERSI_ORBT_L2_TPW_MLT_NUL_'
 ORBIT_SUFFIX = '_1000M_MS.HDF'
@@ -40,16 +41,17 @@ class FY_3D(Satellite):
         result = dict()
         #跨天的处理
         if from_date_str != to_date_str:
-            split_timestamp = to_timestamp / 86400 * 86400    #第二天0点
+            split_timestamp = to_timestamp / 86400 * 86400 + 16 * 3600   #第二天0点
+            print from_date_str, to_date_str, split_timestamp
             #处理第一天
             for timestamp in range(from_timestamp, split_timestamp+1, time_interval):
                 tpw_file_name = tpw_file_path + from_date_str + ORBIT_PREFIX + util.get_datetime_str(
                     timestamp) + ORBIT_SUFFIX
                 lnglat_file_name = lnglat_file_path + from_date_str + GEO1K_PREFIX + util.get_datetime_str(
                     timestamp) + GEO1K_SUFFIX
-                tpw_data.extend(self.load_file(tpw_file_name, 'MERSI_TPW'))
-                lng_data.extend(self.load_file(lnglat_file_name, 'Geolocation/Longitude'))
-                lat_data.extend(self.load_file(lnglat_file_name, 'Geolocation/Latitude'))
+                tpw_data = np.append(tpw_data, self.load_file(tpw_file_name, 'MERSI_TPW'))
+                lng_data = np.append(lng_data, self.load_file(lnglat_file_name, 'Geolocation/Longitude'))
+                lat_data = np.append(lat_data, self.load_file(lnglat_file_name, 'Geolocation/Latitude'))
 
             #处理第二天
             for timestamp in range(split_timestamp, to_timestamp+1, time_interval):
@@ -57,18 +59,18 @@ class FY_3D(Satellite):
                     timestamp) + ORBIT_SUFFIX
                 lnglat_file_name = lnglat_file_path + to_date_str + GEO1K_PREFIX + util.get_datetime_str(
                     timestamp) + GEO1K_SUFFIX
-                tpw_data.extend(self.load_file(tpw_file_name, 'MERSI_TPW'))
-                lng_data.extend(self.load_file(lnglat_file_name, 'Geolocation/Longitude'))
-                lat_data.extend(self.load_file(lnglat_file_name, 'Geolocation/Latitude'))
+                tpw_data = np.append(tpw_data, self.load_file(tpw_file_name, 'MERSI_TPW'))
+                lng_data = np.append(lng_data, self.load_file(lnglat_file_name, 'Geolocation/Longitude'))
+                lat_data = np.append(lat_data, self.load_file(lnglat_file_name, 'Geolocation/Latitude'))
         else:
             for timestamp in range(from_timestamp, to_timestamp+1, time_interval):
                 tpw_file_name = tpw_file_path + from_date_str + ORBIT_PREFIX + util.get_datetime_str(
                     timestamp) + ORBIT_SUFFIX
                 lnglat_file_name = lnglat_file_path + from_date_str + GEO1K_PREFIX + util.get_datetime_str(
                     timestamp) + GEO1K_SUFFIX
-                tpw_data.extend(self.load_file(tpw_file_name, 'MERSI_TPW'))
-                lng_data.extend(self.load_file(lnglat_file_name, 'Geolocation/Longitude'))
-                lat_data.extend(self.load_file(lnglat_file_name, 'Geolocation/Latitude'))
+                tpw_data = np.append(tpw_data, self.load_file(tpw_file_name, 'MERSI_TPW'))
+                lng_data = np.append(lng_data, self.load_file(lnglat_file_name, 'Geolocation/Longitude'))
+                lat_data = np.append(lat_data, self.load_file(lnglat_file_name, 'Geolocation/Latitude'))
 
         result['tpw'] = tpw_data
         result['lng'] = lng_data

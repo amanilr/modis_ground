@@ -8,6 +8,7 @@ import pandas as pd
 import util
 
 TIME_RANGE = 25 * 60
+TIME_INTERVAL = 5 * 60
 
 class GPS1(object):
     def __init__(self, file_path):
@@ -30,7 +31,7 @@ class GPS1(object):
         timestamp = self._get_timestamp_from_filename(file_name)
         from_timestamp = timestamp - TIME_RANGE
         to_timestamp = timestamp + TIME_RANGE
-        return from_timestamp, to_timestamp, TIME_RANGE
+        return from_timestamp, to_timestamp, TIME_INTERVAL
 
     def _load_file(self, file_name):
         total_file_name = os.path.join(self.file_path, file_name)
