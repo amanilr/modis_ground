@@ -39,7 +39,8 @@ class Satellite(object):
         :return: 是否成功
         '''
         if self.data_df is None or len(self.data_df) == 0:
-            return -1
+            #直接返回,kd_tree为None
+            return 0
 
         lnglat_arr = np.array([point for point in zip(self.data_df['lng'].values, self.data_df['lat'].values)])
         self.kd_tree = KDTree(lnglat_arr)
@@ -52,6 +53,9 @@ class Satellite(object):
         :param lat: 纬度
         :return: tpw值
         '''
+        if self.kd_tree is None:
+            return DEFAULT_VALUE
+
         inds = self.kd_tree.query(np.array([lng, lat]).reshape(1, -1), k=1, return_distance=False)
         result = self.data_df.ix[inds[0]]
 
