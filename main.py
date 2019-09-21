@@ -6,6 +6,10 @@ from gps1 import GPS1
 import pandas as pd
 import util
 
+from satellite import DEFAULT_VALUE
+
+#中国的经纬度范围
+CHINA_RANGE = {'ll_lng': 70, 'll_lat': 15, 'ur_lng': 140, 'ur_lat': 55}
 
 def parse_all(satellite_file_path, ground_file_path, out_file_path):
     ground = GPS1(file_path=ground_file_path)
@@ -27,7 +31,7 @@ def parse_all(satellite_file_path, ground_file_path, out_file_path):
         timestamp = ground._get_timestamp_from_filename(file_name)
         from_timestamp, to_timestamp, time_interval = \
             ground._get_time_range_from_filename(file_name)
-        ret = satellite._load_data(from_timestamp, to_timestamp, time_interval)
+        ret = satellite._load_data(from_timestamp, to_timestamp, time_interval, CHINA_RANGE)
         if ret != 0:
             print 'load satellite data error. ret:', ret
             return ret
@@ -39,6 +43,7 @@ def parse_all(satellite_file_path, ground_file_path, out_file_path):
             lng = row['lon']
             lat = row['lat']
             fy3_tpw = satellite._get_nearest_data(lng, lat)
+            print 'fy3_tpw:', fy3_tpw
             if fy3_tpw == DEFAULT_VALUE:
                 continue
 
@@ -52,11 +57,12 @@ def parse_all(satellite_file_path, ground_file_path, out_file_path):
             result['elv'].append(row['elv'])
             result['FY3_TPW'].append(fy3_tpw)
             result['GPS_TPW'].append(row['PWV'])
+        print 'parsing gps file:', file_name, 'done.'
     result_df = pd.DataFrame(result)
 
     print result_df.head(10)
     print out_file_path
-    resultDF.to_csv(out_file_path, index=False)
+    result_df.to_csv(out_file_path, index=False)
 
     print('all done')
     return 0
